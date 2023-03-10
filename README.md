@@ -1,6 +1,6 @@
-# use_widgets
+## Use Widgets
 
-A new Flutter project.
+This flutter project is Widgets usage examples - ListView.builder with Cards
 
 ## Getting Started
 
