@@ -1,11 +1,2 @@
-* linguist-detectable=Dart
-*csharp linguist-detectable=false  
-*java linguist-detectable=false  
-*js linguist-detectable=false  
-*html linguist-detectable=false  
-*xml linguist-detectable=false 
-*swift linguist-detectable=false
-*cplus linguist-detectable=false
-*c linguist-detectable=false  
-*cmake linguist-detectable=false
-  
+* linguist-detectable=Dart  
+*.xml linguist-detectable=false 
