@@ -1,0 +1,1830 @@
+import 'dart:io';
+import 'package:beetinq/config/image/icon/icons.dart';
+import 'package:beetinq/config/utility.dart';
+import 'package:beetinq/core/bloc/landing_page/landing_bloc.dart';
+import 'package:beetinq/core/bloc/user/user_bloc.dart';
+import 'package:beetinq/core/model/meeting_model.dart';
+import 'package:beetinq/core/model/user_model.dart';
+import 'package:beetinq/core/service/database/meeting/add_meeting.dart';
+import 'package:beetinq/core/service/database/users/get_user.dart';
+import 'package:beetinq/core/service/firebase/controller/user_uid_controller.dart';
+import 'package:beetinq/core/service/local/activity_category.dart';
+import 'package:beetinq/core/service/local/activity_type.dart';
+import 'package:beetinq/core/service/local/meeting_category.dart';
+import 'package:beetinq/core/service/local/meeting_type.dart';
+import 'package:beetinq/ui/create_activity/widget/select_company.dart';
+import 'package:beetinq/ui/home_page/view/landing_page.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
+import 'package:beetinq/ui/create_activity/widget/header_widget.dart';
+import 'package:beetinq/ui/meeting/meeting_user_list/view/meeting_user_list.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart';
+
+class CreateActivity extends StatefulWidget {
+  final DateTime getDate;
+  const CreateActivity({Key? key, required this.getDate}) : super(key: key);
+
+  @override
+  _CreateActivityState createState() => _CreateActivityState();
+}
+
+class _CreateActivityState extends State<CreateActivity> {
+  List connectSelected = [];
+  List contactSelected = [];
+  List files = [];
+  File? file;
+  bool private = true;
+  bool allDay = false;
+
+  late DateTime _startNewDate = DateTime.utc(
+          widget.getDate.year, widget.getDate.month, widget.getDate.day, 08, 00)
+      .add(const Duration(days: 1));
+  late DateTime _endNewDate = DateTime.utc(
+          widget.getDate.year, widget.getDate.month, widget.getDate.day, 18, 00)
+      .add(const Duration(days: 2));
+
+  DateTime _startNewTime = DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 08, 00)
+      .add(const Duration(days: 1));
+
+  DateTime _endNewTime = DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 18, 00)
+      .add(const Duration(days: 2));
+
+  Timestamp startTime = Timestamp.fromDate(DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 08, 00)
+      .add(const Duration(days: 1)));
+
+  Timestamp endTime = Timestamp.fromDate(DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 18, 00)
+      .add(const Duration(days: 2)));
+
+  final title = TextEditingController();
+  final detail = TextEditingController();
+  final location = TextEditingController();
+  List businessId = [];
+  List images = [];
+  String dropdownCategory = listActivityCategory.first.id;
+  String dropdownType = listActivityType.first.id;
+  @override
+  Widget build(BuildContext context) {
+    var state = BlocProvider.of<UserBloc>(context).state as UserLoadedState;
+    String userUid = state.user.userId;
+    AppLocalizations? translate = AppLocalizations.of(context);
+    final size = MediaQuery.of(context).size;
+    return StreamBuilder<List<UserModel>>(
+      stream: GetUserMethods().getUser(userUid),
+      builder: (context, snapshot) => Scaffold(
+        resizeToAvoidBottomInset: false,
+        extendBody: false,
+        backgroundColor: const Color(0xffedf1fa),
+        appBar: AppBar(
+          backgroundColor: const Color(0xffedf1fa),
+          elevation: 0,
+          leading: Transform.translate(
+            offset: const Offset(5, 0),
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios,
+                color: Colors.black,
+                size: 20,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          title: const Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Etkinlik Oluştur",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.left,
+                  // overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  "Fuar, Kongre, Sempozyum vb.",
+                  style: TextStyle(color: Colors.black, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.left,
+                  // overflow: TextOverflow.ellipsis,
+                ),
+              ]),
+          centerTitle: true,
+        ),
+        body: ListView(
+          children: [
+            //-----------------------------Toplantı Oluştur Search
+            Container(
+              margin: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 0, bottom: 0),
+                      padding: const EdgeInsets.all(0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: TextField(
+                              textAlign: TextAlign.left,
+                              expands: false,
+                              controller: title,
+                              style: const TextStyle(fontSize: 14),
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                //hintText: "Toplantı Adı..",
+                                hintText: translate!.addTitle + "..",
+                                contentPadding: const EdgeInsets.all(0),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+              ),
+            ),
+            //-----------------------------Tarih, Başlangıç
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              padding: const EdgeInsets.all(8),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () async {
+                      showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2023),
+                        lastDate: DateTime(2030),
+                        locale: const Locale("tr"),
+                      ).then((pickedDate) {
+                        if (pickedDate == null) {
+                          return;
+                        }
+
+                        setState(() {
+                          _startNewDate = pickedDate;
+
+                          _endNewTime = DateTime.utc(pickedDate.year,
+                                  pickedDate.month, pickedDate.day, 18, 00)
+                              .add(const Duration(days: 1));
+
+                          print("_startNewDate: " + _startNewDate.toString());
+                          print("_endNewTime: " + _endNewTime.toString());
+
+                          startTime = Timestamp.fromDate(DateTime(
+                            _startNewDate.year,
+                            _startNewDate.month,
+                            _startNewDate.day,
+                            _startNewTime.hour,
+                            _startNewTime.minute,
+                          ));
+                          endTime = Timestamp.fromDate(DateTime(
+                            _endNewDate.year,
+                            _endNewDate.month,
+                            _endNewDate.day,
+                            _endNewTime.hour,
+                            _endNewTime.minute,
+                          ));
+                        });
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(15),
+                          child: Text(
+                            'Tarih                  -',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Text(
+                            //'19 Temm 2023',
+
+                            Utility.toDMYformate(_startNewDate),
+
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(
+                    height: 1,
+                    indent: 120,
+                    endIndent: 0,
+                    color: Colors.grey,
+                  ),
+                  InkWell(
+                    onTap: () {
+                      DatePicker.showTimePicker(context,
+                              showSecondsColumn: false,
+                              locale: LocaleType.tr,
+                              currentTime: _startNewTime)
+                          .then((pickedTime) {
+                        setState(() {
+                          _startNewTime = pickedTime!;
+
+                          startTime = Timestamp.fromDate(DateTime(
+                            _startNewDate.year,
+                            _startNewDate.month,
+                            _startNewDate.day,
+                            _startNewTime.hour,
+                            _startNewTime.minute,
+                          ));
+                          endTime = Timestamp.fromDate(DateTime(
+                            _endNewDate.year,
+                            _endNewDate.month,
+                            _endNewDate.day,
+                            _endNewTime.hour,
+                            _endNewTime.minute,
+                          ));
+                        });
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(14),
+                          child: Text(
+                            'Başlangıç          -',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Text(
+                            //'21:00',
+                            Utility.toformattedDate5(_startNewTime),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            //-----------------------------Tarih, Bitiş
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              padding: const EdgeInsets.all(8),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () async {
+                      showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2023),
+                        lastDate: DateTime(2030),
+                        locale: const Locale("tr"),
+                      ).then((pickedDate) {
+                        if (pickedDate == null) {
+                          return;
+                        }
+
+                        setState(() {
+                          _endNewDate = pickedDate;
+                          startTime = Timestamp.fromDate(DateTime(
+                            _startNewDate.year,
+                            _startNewDate.month,
+                            _startNewDate.day,
+                            _startNewTime.hour,
+                            _startNewTime.minute,
+                          ));
+                          endTime = Timestamp.fromDate(DateTime(
+                            _endNewDate.year,
+                            _endNewDate.month,
+                            _endNewDate.day,
+                            _endNewTime.hour,
+                            _endNewTime.minute,
+                          ));
+                        });
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(15),
+                          child: Text(
+                            'Tarih                  -',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Text(
+                            //'19 Temm 2023',
+
+                            Utility.toDMYformate(_endNewDate),
+
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(
+                    height: 1,
+                    indent: 120,
+                    endIndent: 0,
+                    color: Colors.grey,
+                  ),
+                  InkWell(
+                    onTap: () {
+                      DatePicker.showTimePicker(context,
+                              showSecondsColumn: false,
+                              locale: LocaleType.tr,
+                              currentTime: _endNewTime)
+                          .then((pickedTime) {
+                        setState(() {
+                          _endNewTime = pickedTime!;
+
+                          startTime = Timestamp.fromDate(DateTime(
+                            _startNewDate.year,
+                            _startNewDate.month,
+                            _startNewDate.day,
+                            _startNewTime.hour,
+                            _startNewTime.minute,
+                          ));
+                          endTime = Timestamp.fromDate(DateTime(
+                            _endNewDate.year,
+                            _endNewDate.month,
+                            _endNewDate.day,
+                            _endNewTime.hour,
+                            _endNewTime.minute,
+                          ));
+                        });
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(15),
+                          child: Text(
+                            'Bitiş                   -',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Text(
+                            //'22:00',
+                            Utility.toformattedDate5(_endNewTime),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            //-----------------------------Kişi Ekle ve Davetli
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MeetingUserList(
+                      isCreate: true,
+                      meetingInvited: [],
+                      nonUserInvited: [],
+                      connectSelected: connectSelected,
+                      contactsSelected: contactSelected,
+                      selected: [],
+                      onTap: () {
+                        setState(() {
+                          Navigator.of(context).pop();
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 15,
+                  horizontal: 20,
+                ),
+                //height: 45,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  //'Kişi Ekle  -  0 Davetli',
+                  "${translate.addUser} - ${connectSelected.length + contactSelected.length} " +
+                      translate.guest,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+            //-----------------------------Kurumsal Toplantı Box
+            InkWell(
+              onTap: () => showModalBottomSheet<void>(
+                isScrollControlled: true,
+                context: context,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                builder: (context) => SelectCompany(
+                  businessId: businessId,
+                  image: images,
+                ),
+              ),
+              child: Container(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 15,
+                  horizontal: 20,
+                ),
+                //height: 45,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  translate.corporate_meeting,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+            //-----------------------------Yüzyüze Box
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: DropdownButton<String>(
+                value: dropdownType,
+                icon: const Icon(Icons.arrow_drop_down),
+                iconSize: 28,
+                elevation: 16,
+                isExpanded: true,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
+                underline: const SizedBox(),
+                onChanged: (String? value) {
+                  // This is called when the user selects an item.
+                  setState(() {
+                    dropdownType = value!;
+                  });
+                },
+                items: listActivityType
+                    .map<DropdownMenuItem<String>>((ActivityType value) {
+                  return DropdownMenuItem<String>(
+                    value: value.id,
+                    child: Text(value.typeName),
+                  );
+                }).toList(),
+              ),
+            ),
+            //-----------------------------Fuar Box
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: DropdownButton<String>(
+                value: dropdownCategory,
+                icon: const Icon(Icons.arrow_drop_down),
+                iconSize: 28,
+                elevation: 16,
+                isExpanded: true,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
+                underline: const SizedBox(),
+                onChanged: (String? value) {
+                  setState(() {
+                    dropdownCategory = value!;
+                  });
+                },
+                items: listActivityCategory
+                    .map<DropdownMenuItem<String>>((ActivityCategory value) {
+                  return DropdownMenuItem<String>(
+                    value: value.id,
+                    child: Text(value.categoryName),
+                  );
+                }).toList(),
+              ),
+            ),
+            //-----------------------------Boşluk
+            const SizedBox(width: 10),
+            //-----------------------------Konum Ekle Serarch
+            Container(
+              margin: const EdgeInsets.all(10),
+              child: Row(children: [
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 0, bottom: 0),
+                    padding: const EdgeInsets.all(0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(width: 10),
+                        SvgPicture.asset(
+                          "assets/icons/location.svg",
+                          height: 15,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            textAlign: TextAlign.left,
+                            expands: false,
+                            //onChanged: (value) {},
+                            controller: location,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.black87,
+                            ),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: "Konum Ekle..",
+                              //hintText: translate.addLocation,
+                              hintStyle: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                              contentPadding: EdgeInsets.all(0),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                /*
+        InkWell(
+        onTap: () {},
+        child: Icon(
+          FontAwesomeIcons.filter,
+          color: theme.primaryColor,
+          size: 20,
+        ),
+        ),
+        */
+              ]),
+            ),
+            //-----------------------------Boşluk
+            const SizedBox(height: 5),
+            //-----------------------------Açıklama Ekle Text
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              alignment: Alignment.centerLeft,
+              child: const Text(
+                'Açıklama Ekle',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            //-----------------------------Açıklama Ekle Box
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: TextFormField(
+                minLines: 2,
+                maxLines: 10,
+                style: const TextStyle(fontSize: 14),
+                controller: detail,
+                keyboardType: TextInputType.multiline,
+                decoration: const InputDecoration(
+                  hintText: 'Açıklama..',
+                  //hintText: translate.addDetail,
+                  hintStyle: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 14,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(10.0),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            //-----------------------------Boşluk
+            const SizedBox(height: 30),
+            //-----------------------------Dosya Ekle Text
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+              alignment: Alignment.centerLeft,
+              child: const Text(
+                'Dosya Ekle',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            //-----------------------------Dosya Ekle Box
+            InkWell(
+              //onTap: () {},
+              child: Container(
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                padding: const EdgeInsets.all(10),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: ListTile(
+                  onTap: () => selectFile(),
+                  //leading: SvgPicture.asset(IconService.addFile),
+                  leading: SvgPicture.asset("assets/icons/folder.svg"),
+                  trailing: files.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setState(
+                            () => files.clear(),
+                          ),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () => selectFile(),
+                        ),
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        files.isNotEmpty
+                            ? files.length.toString() + " " + translate.file
+                            : translate.addFile,
+                        style: const TextStyle(
+                            fontSize: 14, color: Colors.black87),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        files.isNotEmpty
+                            ? "(" + translate.up_to_3_files + ")"
+                            : "",
+                        style: const TextStyle(
+                            fontSize: 14, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                  subtitle: files.isNotEmpty
+                      ? Container(
+                          margin: const EdgeInsets.only(top: 5),
+                          height: files.length * 17,
+                          child: ListView.builder(
+                              itemCount: files.length,
+                              itemBuilder: (context, index) {
+                                File file = files[index];
+                                String fileName = basename(file.path);
+                                return Text(fileName,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black87,
+                                    ));
+                              }),
+                        )
+                      : Container(),
+                ),
+              ),
+            ),
+            //-----------------------------Etkinlik Oluştur Buttonu
+            InkWell(
+              onTap: () {
+                MeetingModel models = MeetingModel(
+                  meetingId: " ",
+                  createMeetingUserId: userUid,
+                  category: dropdownCategory,
+                  type: dropdownType,
+                  location: location.text,
+                  title: title.text,
+                  meetingDescription: detail.text,
+                  image: images.isEmpty ? '' : images.first,
+                  url: "",
+                  startDate: startTime,
+                  endDate: endTime,
+                  createDate: Timestamp.now(),
+                  meetingBusinessState: true,
+                  //premium: snapshot.data![0].premium,
+                  premium: true,
+                  businessId: businessId.first,
+                  explore: private,
+                  state: true,
+                  private: false,
+                  status: "0",
+                  blackList: [],
+                  adminUsers: [userUid],
+                  users: [userUid],
+                  follower: [],
+                  userReq: [],
+                  nonUserInvited: [],
+                  invitations: connectSelected != null ? connectSelected : [],
+                  files: [],
+                  tags: [],
+                  subMeetings: [],
+                  topMeetingId: "",
+                  isActivity: true,
+                  isSubMeeting: false,
+                  isBtoB: false,
+                  btobMeetings: [],
+                  moderatorUsers: [],
+                  isSubActivity: false,
+                  subActivitys: [],
+                  isBtoBSession: false,
+                  sessionCount: 0,
+                  sessionDuration: 0,
+                  sessionBreakDuaration: 0,
+                  sessionDeskCount: 0,
+                  isMatching: false,
+                  matchingSurveyUsers: [],
+                  coverPhoto: "",
+                  isFree: true,
+                  amount: 0.0,
+                  userLimit: 0,
+                );
+                AddMeetingMethods methods = AddMeetingMethods();
+                methods.addMeeting(
+                    models.toJson(),
+                    connectSelected,
+                    contactSelected,
+                    files,
+                    state.user.name + " " + state.user.surName);
+                BlocProvider.of<LandingPageBloc>(
+                  context,
+                ).add(TabChange(tabIndex: 0));
+
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (BuildContext context) => const LandingPage(),
+                  ),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(15),
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5A60FF),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'Etkinlik Oluştur',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            //-----------------------------En Alt Boşluk
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future selectFile() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+
+    if (result == null) return;
+    final path = result.files.single.path!;
+
+    setState(() {
+      file = File(path);
+      print("file size: ->");
+      print(file!.lengthSync());
+      if (files.length < 3) {
+        bool fileState = false;
+        for (var item in files) {
+          if (basename(item.path) == basename(file!.path)) {
+            fileState = true;
+          }
+        }
+        if (!fileState) {
+          files.add(file);
+        }
+      }
+    });
+  }
+}
+///////////////////////// Eski /////////////////////////
+/*
+import 'dart:io';
+import 'package:beetinq/config/image/icon/icons.dart';
+import 'package:beetinq/config/utility.dart';
+import 'package:beetinq/core/bloc/landing_page/landing_bloc.dart';
+import 'package:beetinq/core/bloc/user/user_bloc.dart';
+import 'package:beetinq/core/model/meeting_model.dart';
+import 'package:beetinq/core/model/user_model.dart';
+import 'package:beetinq/core/service/database/meeting/add_meeting.dart';
+import 'package:beetinq/core/service/database/users/get_user.dart';
+import 'package:beetinq/core/service/firebase/controller/user_uid_controller.dart';
+import 'package:beetinq/core/service/local/activity_category.dart';
+import 'package:beetinq/core/service/local/activity_type.dart';
+import 'package:beetinq/core/service/local/meeting_category.dart';
+import 'package:beetinq/core/service/local/meeting_type.dart';
+import 'package:beetinq/ui/create_activity/widget/select_company.dart';
+import 'package:beetinq/ui/home_page/view/landing_page.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
+import 'package:beetinq/ui/create_activity/widget/header_widget.dart';
+import 'package:beetinq/ui/meeting/meeting_user_list/view/meeting_user_list.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart';
+
+class CreateActivity extends StatefulWidget {
+  final DateTime getDate;
+  const CreateActivity({Key? key, required this.getDate}) : super(key: key);
+
+  @override
+  _CreateActivityState createState() => _CreateActivityState();
+}
+
+class _CreateActivityState extends State<CreateActivity> {
+  List connectSelected = [];
+  List contactSelected = [];
+  List files = [];
+  File? file;
+  bool private = true;
+  bool allDay = false;
+
+  late DateTime _startNewDate = DateTime.utc(
+          widget.getDate.year, widget.getDate.month, widget.getDate.day, 08, 00)
+      .add(const Duration(days: 1));
+  late DateTime _endNewDate = DateTime.utc(
+          widget.getDate.year, widget.getDate.month, widget.getDate.day, 18, 00)
+      .add(const Duration(days: 2));
+
+  DateTime _startNewTime = DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 08, 00)
+      .add(const Duration(days: 1));
+
+  DateTime _endNewTime = DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 18, 00)
+      .add(const Duration(days: 2));
+
+  Timestamp startTime = Timestamp.fromDate(DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 08, 00)
+      .add(const Duration(days: 1)));
+
+  Timestamp endTime = Timestamp.fromDate(DateTime.utc(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 18, 00)
+      .add(const Duration(days: 2)));
+
+  final title = TextEditingController();
+  final detail = TextEditingController();
+  final location = TextEditingController();
+  List businessId = [];
+  List images = [];
+  String dropdownCategory = listActivityCategory.first.id;
+  String dropdownType = listActivityType.first.id;
+  @override
+  Widget build(BuildContext context) {
+    var state = BlocProvider.of<UserBloc>(context).state as UserLoadedState;
+    String userUid = state.user.userId;
+    AppLocalizations? translate = AppLocalizations.of(context);
+    final size = MediaQuery.of(context).size;
+    return StreamBuilder<List<UserModel>>(
+      stream: GetUserMethods().getUser(userUid),
+      builder: (context, snapshot) => Stack(
+        children: <Widget>[
+          Container(
+            height: size.height,
+            width: size.width,
+            color: Colors.white,
+          ),
+          Scaffold(
+            resizeToAvoidBottomInset: false,
+            extendBody: false,
+            backgroundColor: Colors.transparent,
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(60),
+              child: CreateActivityHeader(tap: () {
+                MeetingModel models = MeetingModel(
+                  meetingId: " ",
+                  createMeetingUserId: userUid,
+                  category: dropdownCategory,
+                  type: dropdownType,
+                  location: location.text,
+                  title: title.text,
+                  meetingDescription: detail.text,
+                  image: images.isEmpty ? '' : images.first,
+                  url: "",
+                  startDate: startTime,
+                  endDate: endTime,
+                  createDate: Timestamp.now(),
+                  meetingBusinessState: true,
+                  //premium: snapshot.data![0].premium,
+                  premium: true,
+                  businessId: businessId.first,
+                  explore: private,
+                  state: true,
+                  private: false,
+                  status: "0",
+                  blackList: [],
+                  adminUsers: [userUid],
+                  users: [userUid],
+                  follower: [],
+                  userReq: [],
+                  nonUserInvited: [],
+                  invitations: connectSelected != null ? connectSelected : [],
+                  files: [],
+                  tags: [],
+                  subMeetings: [],
+                  topMeetingId: "",
+                  isActivity: true,
+                  isSubMeeting: false,
+                  isBtoB: false,
+                  btobMeetings: [],
+                  moderatorUsers: [],
+                  isSubActivity: false,
+                  subActivitys: [],
+                  isBtoBSession: false,
+                  sessionCount: 0,
+                  sessionDuration: 0,
+                  sessionBreakDuaration: 0,
+                  sessionDeskCount: 0,
+                  isMatching: false,
+                  matchingSurveyUsers: [],
+                  coverPhoto: "",
+                  isFree: true,
+                  amount: 0.0,
+                  userLimit: 0,
+                  urlLocation: '',
+                  urlHost: '',
+                  urlAttendee: '',
+                );
+                AddMeetingMethods methods = AddMeetingMethods();
+                methods.addMeeting(
+                    models.toJson(),
+                    connectSelected,
+                    contactSelected,
+                    files,
+                    state.user.name + " " + state.user.surName);
+                BlocProvider.of<LandingPageBloc>(
+                  context,
+                ).add(TabChange(tabIndex: 0));
+
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (BuildContext context) => const LandingPage(),
+                  ),
+                );
+              }),
+            ),
+            body: Stack(
+              children: [
+                Container(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Column(
+                    children: [
+                      // CreateMeetingHeader(),
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            _cardTitle(
+                                translate!.addTitle, title, IconService.blank),
+                            Card(
+                              shape: Border(
+                                bottom: BorderSide(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
+                                ),
+                              ),
+                              color: Colors.transparent,
+                              child: Column(
+                                children: [
+                                  ListTile(
+                                    enabled: true,
+                                    onTap: () async {
+                                      showDatePicker(
+                                        context: context,
+                                        initialDate: DateTime.now(),
+                                        firstDate: DateTime(2023),
+                                        lastDate: DateTime(2030),
+                                        locale: const Locale("tr"),
+                                      ).then((pickedDate) {
+                                        if (pickedDate == null) {
+                                          return;
+                                        }
+
+                                        setState(() {
+                                          _startNewDate = pickedDate;
+
+                                          _endNewTime = DateTime.utc(
+                                                  pickedDate.year,
+                                                  pickedDate.month,
+                                                  pickedDate.day,
+                                                  18,
+                                                  00)
+                                              .add(const Duration(days: 1));
+
+                                          print("_startNewDate: " +
+                                              _startNewDate.toString());
+                                          print("_endNewTime: " +
+                                              _endNewTime.toString());
+
+                                          startTime =
+                                              Timestamp.fromDate(DateTime(
+                                            _startNewDate.year,
+                                            _startNewDate.month,
+                                            _startNewDate.day,
+                                            _startNewTime.hour,
+                                            _startNewTime.minute,
+                                          ));
+                                          endTime = Timestamp.fromDate(DateTime(
+                                            _endNewDate.year,
+                                            _endNewDate.month,
+                                            _endNewDate.day,
+                                            _endNewTime.hour,
+                                            _endNewTime.minute,
+                                          ));
+                                        });
+                                      });
+                                    },
+                                    leading: SvgPicture.asset(
+                                      IconService.allDay,
+                                      color: Colors.black54,
+                                    ),
+                                    title: Text(
+                                      translate.start,
+                                      style: GoogleFonts.openSans(fontSize: 18)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                    trailing: Text(
+                                      Utility.toDMYformate(_startNewDate),
+                                      style: GoogleFonts.openSans(fontSize: 17)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                  ),
+                                  const Divider(
+                                    height: 2,
+                                    indent: 60,
+                                  ),
+                                  ListTile(
+                                    onTap: () {
+                                      DatePicker.showTimePicker(context,
+                                              showSecondsColumn: false,
+                                              locale: LocaleType.tr,
+                                              currentTime: _startNewTime)
+                                          .then((pickedTime) {
+                                        setState(() {
+                                          _startNewTime = pickedTime!;
+
+                                          startTime =
+                                              Timestamp.fromDate(DateTime(
+                                            _startNewDate.year,
+                                            _startNewDate.month,
+                                            _startNewDate.day,
+                                            _startNewTime.hour,
+                                            _startNewTime.minute,
+                                          ));
+                                          endTime = Timestamp.fromDate(DateTime(
+                                            _endNewDate.year,
+                                            _endNewDate.month,
+                                            _endNewDate.day,
+                                            _endNewTime.hour,
+                                            _endNewTime.minute,
+                                          ));
+                                        });
+                                      });
+                                    },
+                                    leading:
+                                        SvgPicture.asset(IconService.space),
+                                    title: Text(
+                                      "",
+                                      style: GoogleFonts.openSans(fontSize: 18)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                    trailing: Text(
+                                      Utility.toformattedDate5(_startNewTime),
+                                      style: GoogleFonts.openSans(fontSize: 17)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Card(
+                              shape: Border(
+                                bottom: BorderSide(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
+                                ),
+                              ),
+                              color: Colors.transparent,
+                              child: Column(
+                                children: [
+                                  ListTile(
+                                    enabled: true,
+                                    onTap: () async {
+                                      showDatePicker(
+                                        context: context,
+                                        initialDate: DateTime.now(),
+                                        firstDate: DateTime(2023),
+                                        lastDate: DateTime(2030),
+                                        locale: const Locale("tr"),
+                                      ).then((pickedDate) {
+                                        if (pickedDate == null) {
+                                          return;
+                                        }
+
+                                        setState(() {
+                                          _endNewDate = pickedDate;
+                                          startTime =
+                                              Timestamp.fromDate(DateTime(
+                                            _startNewDate.year,
+                                            _startNewDate.month,
+                                            _startNewDate.day,
+                                            _startNewTime.hour,
+                                            _startNewTime.minute,
+                                          ));
+                                          endTime = Timestamp.fromDate(DateTime(
+                                            _endNewDate.year,
+                                            _endNewDate.month,
+                                            _endNewDate.day,
+                                            _endNewTime.hour,
+                                            _endNewTime.minute,
+                                          ));
+                                        });
+                                      });
+                                    },
+                                    leading: SvgPicture.asset(
+                                      IconService.allDay,
+                                      color: Colors.black54,
+                                    ),
+                                    title: Text(
+                                      translate.end,
+                                      style: GoogleFonts.openSans(fontSize: 18)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                    trailing: Text(
+                                      Utility.toDMYformate(_endNewDate),
+                                      style: GoogleFonts.openSans(fontSize: 17)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                  ),
+                                  const Divider(
+                                    height: 2,
+                                    indent: 60,
+                                  ),
+                                  ListTile(
+                                    onTap: () {
+                                      DatePicker.showTimePicker(context,
+                                              showSecondsColumn: false,
+                                              locale: LocaleType.tr,
+                                              currentTime: _endNewTime)
+                                          .then((pickedTime) {
+                                        setState(() {
+                                          _endNewTime = pickedTime!;
+
+                                          startTime =
+                                              Timestamp.fromDate(DateTime(
+                                            _startNewDate.year,
+                                            _startNewDate.month,
+                                            _startNewDate.day,
+                                            _startNewTime.hour,
+                                            _startNewTime.minute,
+                                          ));
+                                          endTime = Timestamp.fromDate(DateTime(
+                                            _endNewDate.year,
+                                            _endNewDate.month,
+                                            _endNewDate.day,
+                                            _endNewTime.hour,
+                                            _endNewTime.minute,
+                                          ));
+                                        });
+                                      });
+                                    },
+                                    leading:
+                                        SvgPicture.asset(IconService.space),
+                                    title: Text(
+                                      "",
+                                      style: GoogleFonts.openSans(fontSize: 18)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                    trailing: Text(
+                                      Utility.toformattedDate5(_endNewTime),
+                                      style: GoogleFonts.openSans(fontSize: 17)
+                                          .copyWith(
+                                              color: const Color(0xff5E6166)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _card(
+                                "${translate.addUser} - ${connectSelected.length + contactSelected.length} " +
+                                    translate.guest,
+                                IconService.addPerson,
+                                MeetingUserList(
+                                  isCreate: true,
+                                  meetingInvited: [],
+                                  nonUserInvited: [],
+                                  connectSelected: connectSelected,
+                                  contactsSelected: contactSelected,
+                                  selected: [],
+                                  onTap: () {
+                                    setState(() {
+                                      Navigator.of(context).pop();
+                                    });
+                                  },
+                                ),
+                                context),
+                            _selectedBusinessCard(translate.corporate_meeting,
+                                IconService.private, context),
+                            Card(
+                              shape: Border(
+                                  bottom: BorderSide(
+                                      color: Colors.grey.shade300, width: 1)),
+                              color: Colors.transparent,
+                              child: ListTile(
+                                leading: SvgPicture.asset(
+                                  IconService.radiolist,
+                                  color: Colors.black54,
+                                  width: 30,
+                                  height: 30,
+                                ),
+                                title: DropdownButton<String>(
+                                  value: dropdownType,
+                                  elevation: 16,
+                                  style: const TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 18,
+                                  ),
+                                  onChanged: (String? value) {
+                                    // This is called when the user selects an item.
+                                    setState(() {
+                                      dropdownType = value!;
+                                    });
+                                  },
+                                  items: listActivityType
+                                      .map<DropdownMenuItem<String>>(
+                                          (ActivityType value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value.id,
+                                      child: Text(value.typeName),
+                                    );
+                                  }).toList(),
+                                  icon: Icon(Icons.arrow_drop_down),
+                                  iconSize: 42,
+                                  underline: SizedBox(),
+                                ),
+                              ),
+                            ),
+                            Card(
+                              shape: Border(
+                                  bottom: BorderSide(
+                                      color: Colors.grey.shade300, width: 1)),
+                              color: Colors.transparent,
+                              child: ListTile(
+                                leading: SvgPicture.asset(
+                                  IconService.radiolist,
+                                  color: Colors.black54,
+                                  width: 30,
+                                  height: 30,
+                                ),
+                                title: DropdownButton<String>(
+                                  value: dropdownCategory,
+                                  elevation: 16,
+                                  style: const TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 18,
+                                  ),
+                                  onChanged: (String? value) {
+                                    // This is called when the user selects an item.
+                                    setState(() {
+                                      dropdownCategory = value!;
+                                    });
+                                  },
+                                  items: listActivityCategory
+                                      .map<DropdownMenuItem<String>>(
+                                          (ActivityCategory value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value.id,
+                                      child: Text(value.categoryName),
+                                    );
+                                  }).toList(),
+                                  icon: Icon(Icons.arrow_drop_down),
+                                  iconSize: 42,
+                                  underline: SizedBox(),
+                                ),
+                              ),
+                            ),
+
+                            /*
+                          Card(
+                            shape: Border(
+                                bottom: BorderSide(
+                                    color: Colors.grey.shade300, width: 1)),
+                            color: Colors.transparent,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                SvgPicture.asset(
+                                  IconService.radiolist,
+                                  color: Colors.black54,
+                                  width: 30,
+                                  height: 30,
+                                ),
+                                Text(
+                                  "Kategori",
+                                  style: GoogleFonts.openSans(fontSize: 18),
+                                ),
+                                Container(
+                                  margin: EdgeInsets.only(bottom: 10),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Color.fromARGB(255, 233, 246, 255),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+
+                                  // dropdown below..
+                                  child: DropdownButton<String>(
+                                    value: dropdownValue,
+                                    elevation: 16,
+                                    style: const TextStyle(
+                                        color: Colors.deepPurple),
+                                    onChanged: (String? value) {
+                                      // This is called when the user selects an item.
+                                      setState(() {
+                                        dropdownValue = value!;
+                                      });
+                                    },
+                                    items: listMeetingCategory
+                                        .map<DropdownMenuItem<String>>(
+                                            (MeetingCategory value) {
+                                      return DropdownMenuItem<String>(
+                                        value: value.id,
+                                        child: Text(value.categoryName),
+                                      );
+                                    }).toList(),
+                                    icon: Icon(Icons.arrow_drop_down),
+                                    iconSize: 42,
+                                    underline: SizedBox(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          */
+                            _cardText(translate.addDetail, detail,
+                                IconService.comment),
+                            _cardTextLocation(translate.addLocation, location,
+                                IconService.location),
+                            Card(
+                              shape: Border(
+                                  bottom: BorderSide(
+                                      color: Colors.grey.shade300, width: 1)),
+                              color: Colors.transparent,
+                              child: ListTile(
+                                onTap: () => selectFile(),
+                                leading: SvgPicture.asset(IconService.addFile),
+                                trailing: files.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear),
+                                        onPressed: () => setState(
+                                          () => files.clear(),
+                                        ),
+                                      )
+                                    : IconButton(
+                                        icon: const Icon(Icons.add),
+                                        onPressed: () => selectFile(),
+                                      ),
+                                title: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      files.isNotEmpty
+                                          ? files.length.toString() +
+                                              " " +
+                                              translate.file
+                                          : translate.addFile,
+                                      style: GoogleFonts.openSans(fontSize: 18),
+                                    ),
+                                    SizedBox(
+                                      width: 5,
+                                    ),
+                                    Text(
+                                      files.isNotEmpty
+                                          ? "(" + translate.up_to_3_files + ")"
+                                          : "",
+                                      style: GoogleFonts.openSans(fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                                subtitle: files.isNotEmpty
+                                    ? Container(
+                                        margin: EdgeInsets.only(
+                                          top: 5,
+                                        ),
+                                        height: files.length * 17,
+                                        child: ListView.builder(
+                                            itemCount: files.length,
+                                            itemBuilder: (context, index) {
+                                              File file = files[index];
+                                              String fileName =
+                                                  basename(file.path);
+                                              return Text(
+                                                fileName,
+                                                style: GoogleFonts.openSans(
+                                                    fontSize: 12,
+                                                    color: Colors.black45),
+                                              );
+                                            }),
+                                      )
+                                    : Container(),
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _cardTitle(text, controller, icon) {
+    return Card(
+      shape: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+      color: Colors.transparent,
+      child: ListTile(
+        leading: SvgPicture.asset(
+          icon,
+          width: 24,
+          height: 24,
+        ),
+        title: TextField(
+          autofocus: true,
+          controller: controller,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: text,
+            hintStyle: GoogleFonts.openSans(fontSize: 24),
+          ),
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          minLines: 1,
+          maxLines: 3,
+        ),
+      ),
+    );
+  }
+
+  Widget _card(text, icon, function, context) {
+    return Card(
+      shape: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+      color: Colors.transparent,
+      child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => function),
+          );
+        },
+        leading: SvgPicture.asset(
+          icon,
+          color: Colors.black54,
+        ),
+        title: Text(
+          text,
+          style: GoogleFonts.openSans(fontSize: 18),
+        ),
+      ),
+    );
+  }
+
+  Widget _cardDropDown(text, icon, function, context) {
+    return Card(
+      shape: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+      color: Colors.transparent,
+      child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => function),
+          );
+        },
+        leading: SvgPicture.asset(
+          icon,
+          color: Colors.black54,
+        ),
+        title: Text(
+          text,
+          style: GoogleFonts.openSans(fontSize: 18),
+        ),
+      ),
+    );
+  }
+
+  Widget _selectedBusinessCard(text, icon, context) {
+    return Card(
+      shape: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+      color: Colors.transparent,
+      child: ListTile(
+        onTap: () => showModalBottomSheet<void>(
+          isScrollControlled: true,
+          context: context,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          builder: (context) => SelectCompany(
+            businessId: businessId,
+            image: images,
+          ),
+        ),
+        leading: SvgPicture.asset(icon),
+        title: Text(
+          text,
+          style: GoogleFonts.openSans(fontSize: 18),
+        ),
+      ),
+    );
+  }
+
+  Widget _cardText(text, controller, icon) {
+    return Card(
+      shape: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+      color: Colors.transparent,
+      child: ListTile(
+        leading: SvgPicture.asset(icon),
+        title: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: text,
+            hintStyle: GoogleFonts.openSans(fontSize: 18),
+          ),
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          minLines: 1,
+          maxLines: 20,
+        ),
+      ),
+    );
+  }
+
+  Widget _cardTextLocation(text, controller, icon) {
+    return Card(
+      shape: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+      color: Colors.transparent,
+      child: ListTile(
+        leading: SvgPicture.asset(icon),
+        title: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: text,
+            hintStyle: GoogleFonts.openSans(fontSize: 18),
+          ),
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          minLines: 1,
+          maxLines: 2,
+        ),
+      ),
+    );
+  }
+
+  Future selectFile() async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: false);
+
+    if (result == null) return;
+    final path = result.files.single.path!;
+
+    setState(() {
+      file = File(path);
+      print("file size: ->");
+      print(file!.lengthSync());
+      if (files.length < 3) {
+        bool fileState = false;
+        for (var item in files) {
+          if (basename(item.path) == basename(file!.path)) {
+            fileState = true;
+          }
+        }
+        if (!fileState) {
+          files.add(file);
+        }
+      }
+    });
+  }
+}
+*/
